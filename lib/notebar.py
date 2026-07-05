@@ -10,17 +10,17 @@ Subcommands:
                  last assistant message via a haiku `claude -p` call.
   session-start  SessionStart — re-emit the stored status line (resume/new tab).
 
-Status line shape (budget ~15 words total):
-  <current state> · next: <step>
+Status line shape (goal prefix + ~15-word thrust):
+  <goal>: <current state> · next: <step>
 
 Two facts are tracked:
   GOAL   the high-level thing being built. Sticky: repeated verbatim each
          update unless it clearly misdescribes the session (early sessions
          often open with an exploratory ask before the real goal appears).
-         Kept in state to anchor generation and detect pivots — NOT shown;
-         tab titles already identify sessions.
-  THRUST where work stands right now, plus the obvious next step. This is
-         the displayed line.
+         Displayed as the frozen prefix of the line so every tab names its
+         theme; also anchors generation and detects pivots.
+  THRUST where work stands right now, plus the obvious next step. Displayed
+         after the goal prefix.
 
 Token strategy: never feed the whole transcript. Inputs per update are the
 current goal label, the previous status line, a short excerpt of the latest
@@ -247,8 +247,8 @@ def gen_update(goal, prev_status, user_excerpt, assistant_excerpt):
     actually building."""
     prompt = """You maintain a one-line status for a coding session, shown in a terminal status bar so the user can tell tabs apart and recall where each session left off. It tracks two facts:
 
-1. GOAL - a 2-4 word label for the high-level thing being built. Sticky by design: repeat the current label EXACTLY unless it clearly misdescribes the session. (Sessions often open with an exploratory request before the real goal emerges; once the real goal is visible, correct the label - then keep the corrected label stable.) The goal is not displayed - it anchors your understanding of the session.
-2. THRUST - the displayed line - where work stands right now: <current state, 4-7 words> · next: <concrete next step, 3-5 words>. Omit "· next: ..." if there is no clear next step. Budget {budget} words; every word must earn its place - concrete nouns and verbs, no filler. Assume the reader already knows the session's goal from the tab title; spend words on state and next step, not on restating the goal.
+1. GOAL - a 2-4 word label for the high-level thing being built. Sticky by design: repeat the current label EXACTLY unless it clearly misdescribes the session. (Sessions often open with an exploratory request before the real goal emerges; once the real goal is visible, correct the label - then keep the corrected label stable.) The goal is displayed as the frozen prefix of the status line.
+2. THRUST - shown after the goal prefix - where work stands right now: <current state, 4-7 words> · next: <concrete next step, 3-5 words>. Omit "· next: ..." if there is no clear next step. Budget {budget} words; every word must earn its place - concrete nouns and verbs, no filler. The goal label already prefixes the line; spend thrust words on state and next step, never on restating the goal.
 
 Current GOAL label: {goal}
 Previous status line: {prev}
@@ -284,6 +284,13 @@ THRUST: <thrust>""".format(
 
 
 # ---------------------------------------------------------------- display
+
+def compose(goal, thrust):
+    """Displayed line: frozen goal prefix + current thrust."""
+    if goal and thrust:
+        return "%s: %s" % (goal, thrust)
+    return thrust or goal or ""
+
 
 def set_note(note):
     session_id = os.environ.get("ITERM_SESSION_ID", "").split(":")[-1]
@@ -322,13 +329,14 @@ def handle_prompt(event):
         state["last_prompt"] = prompt[:300]
         save_state(session_id, state)
         if state.get("status"):
-            set_note(state["status"] + " ⋯")  # turn in progress
+            goal = state.get("goal") or state.get("prefix")
+            set_note(compose(goal, state["status"]) + " ⋯")  # turn in progress
         return
     goal = gen_prefix(prompt)
-    status = "starting: %s" % goal
+    status = "starting"
     state.update({"goal": goal, "status": status, "last_prompt": prompt[:300]})
     save_state(session_id, state)
-    set_note(status)
+    set_note(compose(goal, status))
 
 
 def handle_stop(event):
@@ -359,14 +367,15 @@ def handle_stop(event):
     state["goal"] = goal
     state["status"] = status
     save_state(session_id, state)
-    set_note(status)
+    set_note(compose(goal, status))
 
 
 def handle_session_start(event):
     session_id = event.get("session_id", "default")
     state = load_state(session_id)
     if state.get("status"):
-        set_note(state["status"])
+        goal = state.get("goal") or state.get("prefix")
+        set_note(compose(goal, state["status"]))
     prune_stale()
 
 
