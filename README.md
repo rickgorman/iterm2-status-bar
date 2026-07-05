@@ -30,7 +30,7 @@ SessionStart ─────┘        │                (~600 tokens in,      
 ```
 
 - **UserPromptSubmit** — first prompt of a session generates the initial GOAL label (from the prompt text alone, no transcript read). Later prompts just store an excerpt for pivot detection and append `⋯` to the displayed line to mark a turn in progress. No LLM call.
-- **Stop** — the real update. Tail-reads the transcript (last ~256 KB, never the whole file), extracts the last assistant text message, and feeds *goal + previous status + latest prompt excerpt + that message* to Haiku. Hook exits instantly; generation runs in the background under a per-session lock.
+- **Stop** — the real update. Tail-reads the transcript (last ~256 KB, never the whole file), extracts the last assistant text message, and feeds *goal + previous status + latest prompt excerpt + that message* to Haiku. This is also where the GOAL label evolves: each update may revise it when it no longer describes what the session is actually building (revisions logged as `goal revised: 'x' -> 'y'`), so an off-target initial label — or a session that pivots — self-corrects within a turn. Hook exits instantly; generation runs in the background under a per-session lock.
 - **SessionStart** — re-emits the stored line on `--resume` so a resumed session labels its new tab immediately. Also prunes state files older than 14 days.
 
 Display is iTerm2's built-in **Interpolated String** status bar component rendering `🤖 \(user.note?)`; the hook sets `user.note` per-session via the iTerm2 Python API, so each tab shows its own line.
