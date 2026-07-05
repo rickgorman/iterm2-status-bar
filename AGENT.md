@@ -4,7 +4,7 @@ Orientation for AI agents working in this repo. Read README.md first for the use
 
 ## What this is
 
-Claude Code hooks → `lib/notebar.py` → `claude -p --model haiku` → iTerm2 `user.note` variable → status bar. One ~15-word line per session: a sticky 2–4 word GOAL label plus a per-turn THRUST (`state · next: step`).
+Claude Code hooks → `lib/notebar.py` → `claude -p --model haiku` → iTerm2 `user.note` variable → status bar. One ~15-word line per session: a per-turn THRUST (`state · next: step`). A sticky 2–4 word GOAL label is tracked in state (not displayed) to anchor generation and pivot detection.
 
 ## Layout
 

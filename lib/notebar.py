@@ -11,13 +11,16 @@ Subcommands:
   session-start  SessionStart — re-emit the stored status line (resume/new tab).
 
 Status line shape (budget ~15 words total):
-  <2-4 word GOAL label>: <current state> · next: <step>
+  <current state> · next: <step>
 
 Two facts are tracked:
   GOAL   the high-level thing being built. Sticky: repeated verbatim each
          update unless it clearly misdescribes the session (early sessions
          often open with an exploratory ask before the real goal appears).
-  THRUST where work stands right now, plus the obvious next step.
+         Kept in state to anchor generation and detect pivots — NOT shown;
+         tab titles already identify sessions.
+  THRUST where work stands right now, plus the obvious next step. This is
+         the displayed line.
 
 Token strategy: never feed the whole transcript. Inputs per update are the
 current goal label, the previous status line, a short excerpt of the latest
@@ -244,8 +247,8 @@ def gen_update(goal, prev_status, user_excerpt, assistant_excerpt):
     actually building."""
     prompt = """You maintain a one-line status for a coding session, shown in a terminal status bar so the user can tell tabs apart and recall where each session left off. It tracks two facts:
 
-1. GOAL - a 2-4 word label for the high-level thing being built. Sticky by design: repeat the current label EXACTLY unless it clearly misdescribes the session. (Sessions often open with an exploratory request before the real goal emerges; once the real goal is visible, correct the label - then keep the corrected label stable.)
-2. THRUST - where work stands right now: <current state, 4-6 words> · next: <concrete next step, 3-5 words>. Omit "· next: ..." if there is no clear next step. Total display budget is {budget} words including the goal; every word must earn its place - concrete nouns and verbs, no filler.
+1. GOAL - a 2-4 word label for the high-level thing being built. Sticky by design: repeat the current label EXACTLY unless it clearly misdescribes the session. (Sessions often open with an exploratory request before the real goal emerges; once the real goal is visible, correct the label - then keep the corrected label stable.) The goal is not displayed - it anchors your understanding of the session.
+2. THRUST - the displayed line - where work stands right now: <current state, 4-7 words> · next: <concrete next step, 3-5 words>. Omit "· next: ..." if there is no clear next step. Budget {budget} words; every word must earn its place - concrete nouns and verbs, no filler. Assume the reader already knows the session's goal from the tab title; spend words on state and next step, not on restating the goal.
 
 Current GOAL label: {goal}
 Previous status line: {prev}
@@ -277,8 +280,7 @@ THRUST: <thrust>""".format(
         return goal, ""
     if new_goal != goal:
         log("goal revised: %r -> %r" % (goal, new_goal))
-    status = "%s: %s" % (new_goal, thrust)
-    return new_goal, clamp_words(status, MAX_WORDS + 3)
+    return new_goal, clamp_words(thrust, MAX_WORDS + 3)
 
 
 # ---------------------------------------------------------------- display
@@ -323,7 +325,7 @@ def handle_prompt(event):
             set_note(state["status"] + " ⋯")  # turn in progress
         return
     goal = gen_prefix(prompt)
-    status = "%s: starting" % goal
+    status = "starting: %s" % goal
     state.update({"goal": goal, "status": status, "last_prompt": prompt[:300]})
     save_state(session_id, state)
     set_note(status)

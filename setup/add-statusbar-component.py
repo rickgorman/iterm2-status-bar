@@ -8,7 +8,7 @@ import os
 
 import iterm2
 
-EXPRESSION = "🎯 \\(user.note?)"
+EXPRESSION = "🤖 \\(user.note?)"
 
 NOTE_COMPONENT = {
     "class": "iTermStatusBarSwiftyStringComponent",
